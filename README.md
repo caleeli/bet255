@@ -10,12 +10,14 @@ Webapp simple y moderna para organizar apuestas de marcadores del Mundial FIFA 2
 - Puntuación configurable: marcador exacto y resultado acertado (local, empate o visitante).
 - Página separada de configuración.
 - Carga manual o importación masiva JSON de partidos por fase, incluyendo playoffs.
+- Búsqueda de partidos programados en football-data.org para copiar encuentros al calendario interno.
 - Registro de resultados finales y recalculo automático de la tabla de posiciones.
 
 ## Requisitos
 
 - Node.js 20+ recomendado.
 - PHP 8.1+ con extensión PDO SQLite habilitada.
+- Token gratuito/freemium de [football-data.org](https://www.football-data.org/documentation/api) para la búsqueda de partidos programados.
 
 ## Desarrollo
 
@@ -26,6 +28,18 @@ php -S 127.0.0.1:8080 -t .
 ```
 
 Por defecto, la app espera el API en `/api/index.php`. Si usas Vite en otro puerto, define `VITE_API_BASE=http://127.0.0.1:8080/api/index.php`.
+
+Para evitar compartir tokens en el navegador, inicia PHP con `FOOTBALL_DATA_TOKEN` configurado en el entorno. También puedes pegar un token temporal desde la pestaña **Buscar FIFA/API**.
+
+```bash
+FOOTBALL_DATA_TOKEN=tu_token php -S 127.0.0.1:8080 -t .
+```
+
+## Buscar partidos programados
+
+La pestaña **Buscar FIFA/API** consulta `route=scheduled-matches` en el backend PHP. El backend valida las fechas (`YYYY-MM-DD`), deduplica códigos de competición, agrega `status=SCHEDULED`, consulta `https://api.football-data.org/v4/matches` y normaliza la respuesta para que puedas copiar un partido al formulario de calendario.
+
+Ejemplos de códigos de competición: `WC`, `CL`, `PL`, `PD`, `SA`.
 
 ## Importación masiva de partidos
 

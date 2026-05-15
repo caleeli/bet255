@@ -36,6 +36,14 @@ createApp({
     const matchForm = reactive({ id: null, phase: phases[0], home_team: '', away_team: '', starts_at: '' });
     const importText = ref('');
     const resultForms = reactive({});
+    const scheduledSearch = reactive({
+      dateFrom: new Date().toISOString().slice(0, 10),
+      dateTo: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      competitions: 'WC',
+      apiToken: '',
+    });
+    const scheduledMatches = ref([]);
+    const scheduledStatus = ref('Busca partidos programados con football-data.org para cargar el calendario más rápido.');
 
     const selectedMatch = computed(() => matches.value.find((match) => match.id === selectedMatchId.value));
     const groupedMatches = computed(() => {
@@ -174,6 +182,65 @@ createApp({
       }
     }
 
+    async function searchScheduledMatches() {
+      scheduledStatus.value = 'Consultando football-data.org...';
+      scheduledMatches.value = [];
+
+      const params = new URLSearchParams({
+        route: 'scheduled-matches',
+        dateFrom: scheduledSearch.dateFrom,
+        dateTo: scheduledSearch.dateTo,
+      });
+      if (scheduledSearch.competitions.trim()) {
+        params.set('competitions', scheduledSearch.competitions.trim());
+      }
+
+      const headers = {};
+      if (scheduledSearch.apiToken.trim()) {
+        headers['X-Football-Data-Token'] = scheduledSearch.apiToken.trim();
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}?${params.toString()}`, { headers });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || 'No se pudo completar la búsqueda');
+        }
+        scheduledMatches.value = payload.matches || [];
+        scheduledStatus.value = scheduledMatches.value.length
+          ? `${scheduledMatches.value.length} partidos programados encontrados.`
+          : 'No encontramos partidos programados con esos filtros.';
+      } catch (error) {
+        scheduledStatus.value = error.message;
+        showToast(error.message, 'error');
+      }
+    }
+
+    function stageToPhase(stage) {
+      const stageMap = {
+        GROUP_STAGE: 'Fase de grupos',
+        LAST_32: 'Dieciseisavos',
+        LAST_16: 'Octavos',
+        QUARTER_FINALS: 'Cuartos',
+        SEMI_FINALS: 'Semifinales',
+        THIRD_PLACE: 'Tercer lugar',
+        FINAL: 'Final',
+      };
+      return stageMap[stage] || phases[0];
+    }
+
+    function useScheduledMatch(match) {
+      activeTab.value = 'matches';
+      Object.assign(matchForm, {
+        id: null,
+        phase: stageToPhase(match.stage),
+        home_team: match.homeTeam,
+        away_team: match.awayTeam,
+        starts_at: dateForInput(match.utcDate),
+      });
+      showToast('Partido copiado al formulario. Revisa la fase y guarda el partido.');
+    }
+
     function sampleImport() {
       importText.value = JSON.stringify([
         { phase: 'Fase de grupos', home_team: 'Equipo A', away_team: 'Equipo B', starts_at: '2026-06-11T19:00' },
@@ -201,6 +268,14 @@ createApp({
       phases,
       resultForms,
       sampleImport,
+      scheduledMatches,
+      scheduledSearch,
+      scheduledStatus,
+      searchScheduledMatches,
+      saveMatch,
+      saveResult,
+      saveSettings,
+      useScheduledMatch,
       saveMatch,
       saveResult,
       saveSettings,
@@ -232,6 +307,7 @@ createApp({
         <button :class="{ active: activeTab === 'bets' }" @click="activeTab = 'bets'">Apostar</button>
         <button :class="{ active: activeTab === 'leaderboard' }" @click="activeTab = 'leaderboard'">Tabla</button>
         <button :class="{ active: activeTab === 'matches' }" @click="activeTab = 'matches'">Partidos</button>
+        <button :class="{ active: activeTab === 'scheduled' }" @click="activeTab = 'scheduled'">Buscar FIFA/API</button>
         <button :class="{ active: activeTab === 'settings' }" @click="activeTab = 'settings'">Configuración</button>
       </nav>
 
@@ -324,6 +400,34 @@ createApp({
               <input v-model.number="resultForms[match.id].away_score" type="number" min="0" />
               <button>Finalizar</button>
             </form>
+          </div>
+        </article>
+      </section>
+
+
+      <section v-if="activeTab === 'scheduled'" class="grid two-columns">
+        <article class="panel">
+          <h2>Buscar partidos programados</h2>
+          <p class="muted">Consulta football-data.org como API libre/freemium para encontrar partidos con estado programado y copiarlos al calendario interno.</p>
+          <form @submit.prevent="searchScheduledMatches" class="form-grid">
+            <label>Fecha inicial<input v-model="scheduledSearch.dateFrom" type="date" required /></label>
+            <label>Fecha final<input v-model="scheduledSearch.dateTo" type="date" required /></label>
+            <label>Competiciones<input v-model="scheduledSearch.competitions" placeholder="WC, CL, PL" /></label>
+            <label>Token opcional<input v-model="scheduledSearch.apiToken" type="password" autocomplete="off" placeholder="Si no existe FOOTBALL_DATA_TOKEN" /></label>
+            <button class="primary">Buscar programados</button>
+          </form>
+          <p class="helper">Recomendado: configura <code>FOOTBALL_DATA_TOKEN</code> en PHP para no compartir tokens en el navegador.</p>
+        </article>
+
+        <article class="panel">
+          <h2>Resultados de la API</h2>
+          <p class="empty">{{ scheduledStatus }}</p>
+          <div v-for="match in scheduledMatches" :key="match.id || match.utcDate + match.homeTeam" class="admin-match scheduled-match">
+            <div>
+              <strong>{{ match.homeTeam }} vs {{ match.awayTeam }}</strong>
+              <p>{{ match.competition }} · {{ formatDate(match.utcDate) }} · {{ match.status }}</p>
+            </div>
+            <button @click="useScheduledMatch(match)">Usar en calendario</button>
           </div>
         </article>
       </section>

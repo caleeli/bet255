@@ -59,6 +59,11 @@ h3 { margin: 0 0 0.6rem; }
 .check { display: flex; align-items: center; gap: 10px; }
 .check input { width: auto; }
 
+.muted { color: #596985; line-height: 1.6; margin-top: -0.5rem; }
+.helper { margin: 14px 0 0; color: #65708b; font-size: 0.92rem; }
+.helper code { padding: 0.15rem 0.35rem; border-radius: 8px; background: #eef3ff; color: #173b86; font-weight: 800; }
+.scheduled-match button { white-space: nowrap; }
+
 @media (max-width: 850px) {
   .hero, .two-columns, .form-grid, .admin-match { grid-template-columns: 1fr; }
   .tabs { overflow-x: auto; }

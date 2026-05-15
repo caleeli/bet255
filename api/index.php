@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, X-Football-Data-Token');
 header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -119,6 +119,125 @@ function settings(): array
         'mail_from' => $rows['mail_from'] ?? 'polla@oficina.local',
         'mail_enabled' => ($rows['mail_enabled'] ?? '0') === '1',
     ];
+}
+
+
+function validateApiDate(?string $value, string $field): ?string
+{
+    if ($value === null || trim($value) === '') {
+        return null;
+    }
+
+    $value = trim($value);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+        fail("{$field} debe tener formato YYYY-MM-DD");
+    }
+
+    return $value;
+}
+
+function competitionCodes(?string $value): array
+{
+    if ($value === null || trim($value) === '') {
+        return [];
+    }
+
+    $codes = array_map(
+        fn(string $code): string => strtoupper(trim($code)),
+        explode(',', $value)
+    );
+    $codes = array_values(array_filter($codes, fn(string $code): bool => $code !== ''));
+
+    return array_values(array_unique($codes));
+}
+
+function footballDataToken(): ?string
+{
+    $serverToken = getenv('FOOTBALL_DATA_TOKEN');
+    if (is_string($serverToken) && trim($serverToken) !== '') {
+        return trim($serverToken);
+    }
+
+    $headerToken = $_SERVER['HTTP_X_FOOTBALL_DATA_TOKEN'] ?? '';
+    return trim((string)$headerToken) !== '' ? trim((string)$headerToken) : null;
+}
+
+function normalizeScheduledMatch(array $match): array
+{
+    return [
+        'id' => $match['id'] ?? null,
+        'utcDate' => $match['utcDate'] ?? '',
+        'status' => $match['status'] ?? '',
+        'competition' => $match['competition']['name'] ?? 'Competición sin nombre',
+        'competitionCode' => $match['competition']['code'] ?? '',
+        'homeTeam' => $match['homeTeam']['name'] ?? 'Local por definir',
+        'awayTeam' => $match['awayTeam']['name'] ?? 'Visitante por definir',
+        'matchday' => $match['matchday'] ?? null,
+        'stage' => $match['stage'] ?? '',
+    ];
+}
+
+function scheduledMatches(): void
+{
+    $token = footballDataToken();
+    if ($token === null) {
+        fail('Falta el token de football-data.org. Configura FOOTBALL_DATA_TOKEN o envía X-Football-Data-Token.');
+    }
+
+    $query = ['status' => 'SCHEDULED'];
+    $dateFrom = validateApiDate($_GET['dateFrom'] ?? null, 'dateFrom');
+    $dateTo = validateApiDate($_GET['dateTo'] ?? null, 'dateTo');
+    if ($dateFrom !== null) {
+        $query['dateFrom'] = $dateFrom;
+    }
+    if ($dateTo !== null) {
+        $query['dateTo'] = $dateTo;
+    }
+
+    $competitions = competitionCodes($_GET['competitions'] ?? null);
+    if ($competitions !== []) {
+        $query['competitions'] = implode(',', $competitions);
+    }
+
+    $url = 'https://api.football-data.org/v4/matches?' . http_build_query($query);
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'header' => "X-Auth-Token: {$token}\r\nAccept: application/json\r\n",
+            'ignore_errors' => true,
+            'timeout' => 15,
+        ],
+    ]);
+
+    $raw = file_get_contents($url, false, $context);
+    $statusCode = 502;
+    foreach (($http_response_header ?? []) as $header) {
+        if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
+            $statusCode = (int)$matches[1];
+            break;
+        }
+    }
+
+    if ($raw === false) {
+        fail('No se pudo consultar football-data.org', 502);
+    }
+
+    $payload = json_decode($raw, true);
+    if (!is_array($payload)) {
+        fail('football-data.org devolvió una respuesta inválida', 502);
+    }
+
+    if ($statusCode < 200 || $statusCode >= 300) {
+        fail((string)($payload['message'] ?? 'No se pudo consultar football-data.org'), $statusCode);
+    }
+
+    $matches = array_map('normalizeScheduledMatch', $payload['matches'] ?? []);
+    ok([
+        'source' => 'football-data.org',
+        'count' => $payload['count'] ?? count($matches),
+        'filters' => $payload['filters'] ?? [],
+        'matches' => $matches,
+    ]);
 }
 
 function validateScore(mixed $score, string $label): int
@@ -381,6 +500,8 @@ try {
         saveSettings();
     } elseif ($route === 'matches' && $method === 'GET') {
         listMatches();
+    } elseif ($route === 'scheduled-matches' && $method === 'GET') {
+        scheduledMatches();
     } elseif ($route === 'matches' && $method === 'POST') {
         saveMatch();
     } elseif ($route === 'matches/import' && $method === 'POST') {
