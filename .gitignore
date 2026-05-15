@@ -4,3 +4,13 @@ dist/
 .env
 .env.*
 !.env.example
+__pycache__/
+*.py[cod]
+.pytest_cache/
+data/*.db
+data/*.db-*
+node_modules/
+dist/
+data/*.sqlite
+.env
+.DS_Store
