@@ -1,0 +1,14 @@
+{
+  "name": "bet255",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "node --test test/backend/*.test.js",
+    "test:frontend": "node --test test/frontend/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
