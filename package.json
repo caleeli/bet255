@@ -13,7 +13,7 @@
   },
   "engines": {
     "node": ">=20"
-  }
+  },
   "dependencies": {
     "@vitejs/plugin-vue": "latest",
     "vite": "latest",
