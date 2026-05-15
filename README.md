@@ -1,35 +1,72 @@
-# Bet255 Match Search
+# Polla Mundial 2026 Oficina
 
-Página web para buscar partidos programados de fútbol usando la API de football-data.org.
+Webapp simple y moderna para organizar apuestas de marcadores del Mundial FIFA 2026 en una oficina. El frontend está construido con Vue y el backend con PHP + SQLite.
 
-## API elegida
+## Características
 
-Se eligió [football-data.org](https://www.football-data.org/documentation/api) porque ofrece un endpoint REST `/v4/matches`, filtros por fecha y competición, y un plan gratuito/freemium adecuado para prototipos.
+- Registro de apuestas por partido con nombre, correo y marcador.
+- Bloqueo automático configurable antes del inicio de cada partido.
+- Confirmación por correo para participantes usando `mail()` de PHP cuando se habilita en configuración.
+- Puntuación configurable: marcador exacto y resultado acertado (local, empate o visitante).
+- Página separada de configuración.
+- Carga manual o importación masiva JSON de partidos por fase, incluyendo playoffs.
+- Búsqueda de partidos programados en football-data.org para copiar encuentros al calendario interno.
+- Registro de resultados finales y recalculo automático de la tabla de posiciones.
 
-## Configuración
+## Requisitos
 
-1. Crea una cuenta y token en football-data.org.
-2. Instala dependencias:
+- Node.js 20+ recomendado.
+- PHP 8.1+ con extensión PDO SQLite habilitada.
+- Token gratuito/freemium de [football-data.org](https://www.football-data.org/documentation/api) para la búsqueda de partidos programados.
 
-   ```bash
-   npm install
-   ```
+## Desarrollo
 
-3. Inicia el servidor con el token como variable de entorno:
+```bash
+npm install
+npm run dev
+php -S 127.0.0.1:8080 -t .
+```
 
-   ```bash
-   FOOTBALL_DATA_TOKEN=tu_token npm start
-   ```
+Por defecto, la app espera el API en `/api/index.php`. Si usas Vite en otro puerto, define `VITE_API_BASE=http://127.0.0.1:8080/api/index.php`.
 
-   También puedes dejar la variable vacía y pegar el token en el formulario de la página.
+Para evitar compartir tokens en el navegador, inicia PHP con `FOOTBALL_DATA_TOKEN` configurado en el entorno. También puedes pegar un token temporal desde la pestaña **Buscar FIFA/API**.
 
-4. Abre <http://localhost:3000>.
+```bash
+FOOTBALL_DATA_TOKEN=tu_token php -S 127.0.0.1:8080 -t .
+```
 
-## Búsqueda de partidos
+## Buscar partidos programados
 
-El formulario permite seleccionar fecha inicial, fecha final y códigos de competición opcionales separados por coma, por ejemplo `PL,CL,PD`. El backend consulta `/api/matches`, agrega el estado `SCHEDULED` y normaliza la respuesta para la interfaz.
+La pestaña **Buscar FIFA/API** consulta `route=scheduled-matches` en el backend PHP. El backend valida las fechas (`YYYY-MM-DD`), deduplica códigos de competición, agrega `status=SCHEDULED`, consulta `https://api.football-data.org/v4/matches` y normaliza la respuesta para que puedas copiar un partido al formulario de calendario.
 
-## Scripts
+Ejemplos de códigos de competición: `WC`, `CL`, `PL`, `PD`, `SA`.
 
-- `npm start`: ejecuta el servidor web.
-- `npm test`: ejecuta las pruebas unitarias.
+## Importación masiva de partidos
+
+Formato esperado:
+
+```json
+[
+  {
+    "phase": "Fase de grupos",
+    "home_team": "Equipo A",
+    "away_team": "Equipo B",
+    "starts_at": "2026-06-11T19:00"
+  },
+  {
+    "phase": "Final",
+    "home_team": "Ganador SF1",
+    "away_team": "Ganador SF2",
+    "starts_at": "2026-07-19T19:00"
+  }
+]
+```
+
+## Producción
+
+```bash
+npm run build
+php -S 0.0.0.0:8080 -t .
+```
+
+Sirve los archivos de `dist/` desde tu servidor web y publica el endpoint PHP `api/index.php` con permisos de escritura sobre `data/`.
