@@ -1,7 +1,7 @@
 import { createApp, computed, onMounted, reactive, ref } from 'vue';
 import './styles.css';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '/api/index.php';
+const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 const phases = ['Fase de grupos', 'Dieciseisavos', 'Octavos', 'Cuartos', 'Semifinales', 'Tercer lugar', 'Final'];
 
 async function api(route, options = {}) {
@@ -416,7 +416,7 @@ createApp({
             <label>Token opcional<input v-model="scheduledSearch.apiToken" type="password" autocomplete="off" placeholder="Si no existe FOOTBALL_DATA_TOKEN" /></label>
             <button class="primary">Buscar programados</button>
           </form>
-          <p class="helper">Recomendado: configura <code>FOOTBALL_DATA_TOKEN</code> en PHP para no compartir tokens en el navegador.</p>
+          <p class="helper">Recomendado: configura <code>FOOTBALL_DATA_TOKEN</code> en Vercel para no compartir tokens en el navegador.</p>
         </article>
 
         <article class="panel">

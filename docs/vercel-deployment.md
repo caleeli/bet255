@@ -1,31 +1,59 @@
-# Vercel frontend deployment
+# Vercel deployment
 
-The frontend lives in `frontend/` and builds with Vite. The root `vercel.json` tells Vercel to install and build that folder, then publish `frontend/dist`.
+La app se despliega completa en Vercel desde la raíz del repositorio.
 
-## Automatic deployment
+## Qué cambió
 
-`.github/workflows/vercel-frontend.yml` deploys the frontend to Vercel when a pull request is merged into `main` or `master`. GitHub emits that merge as a `push` event to the target branch, so the workflow intentionally runs on protected production branches instead of on every pull request update.
+Antes `vercel.json` entraba a `frontend/`, compilaba esa carpeta y por eso se publicaba la pantalla genérica `Frontend ready for Vercel deployments`. Ahora Vercel compila la app real de la raíz (`src/main.js`) y publica `dist/`.
 
-You can also run the workflow manually from GitHub Actions with `workflow_dispatch`.
+El backend PHP fue reemplazado por una Vercel Function en `api/index.js`, por lo que no se necesita servidor PHP, Apache/Nginx ni SQLite en disco para producción.
 
-## GitHub repository configuration
+## Configuración del proyecto en Vercel
 
-Configure these values in **Settings → Secrets and variables → Actions**:
+En **Vercel → Project → Settings → General**:
 
-### Secrets
+- **Framework Preset:** Vite.
+- **Root Directory:** raíz del repositorio, no `frontend/`.
+- **Build Command:** `npm run build`.
+- **Output Directory:** `dist`.
+- **Install Command:** `npm install` o vacío para usar el default de Vercel.
 
-- `VERCEL_TOKEN`: a Vercel access token with permission to deploy the project.
+`vercel.json` ya define esos comandos y los rewrites necesarios:
 
-### Variables
+- `/api` y `/api/*` → `api/index.js`.
+- cualquier otra ruta → `index.html`.
 
-- `VERCEL_ORG_ID`: the Vercel team or user ID that owns the project.
-- `VERCEL_PROJECT_ID`: the Vercel project ID for this frontend.
+## Variables de entorno recomendadas
 
-To find the IDs locally after linking the project, run:
+### Persistencia con Vercel KV
 
-```bash
-vercel link
-cat .vercel/project.json
+Configura Vercel KV y agrega:
+
+```text
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
 ```
 
-Do not commit `.vercel/project.json`; keep those IDs in GitHub Actions variables instead.
+Sin esas variables, la API funciona con memoria del proceso. Eso es útil para validar el deploy, pero no es persistente.
+
+### Búsqueda de partidos
+
+Para la pestaña **Buscar FIFA/API** configura:
+
+```text
+FOOTBALL_DATA_TOKEN=...
+```
+
+Si no la configuras, el formulario permite enviar temporalmente el token desde el navegador en el header `X-Football-Data-Token`.
+
+## Verificación rápida
+
+Después de desplegar, revisa:
+
+```bash
+curl https://TU-DOMINIO.vercel.app/api?route=health
+```
+
+La respuesta debe incluir `status: "ok"` y `storage: "vercel-kv"` cuando KV esté configurado, o `storage: "memory"` en fallback.
+
+Luego abre `https://TU-DOMINIO.vercel.app/` y deberías ver la UI de **Polla Mundial 2026 Oficina**, no la pantalla genérica de frontend.
